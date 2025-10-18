@@ -158,9 +158,9 @@
   "The user will be asked for the split char on the first run
    of sp/latin-pps-and-translation")
 
-(defun sp/latin-pps--fetch-text (start end)
+(defun sp/latin-pps--fetch-text ()
   (let* ((text (string-trim-right
-		(buffer-substring-no-properties start end) "\n"))
+		(thing-at-point 'line t) "\n"))
 	 (split-var (if sp/latin-pps--latin-eng-split-token
 			sp/latin-pps--latin-eng-split-token
 		      (setq sp/latin-pps--latin-eng-split-token (read-string "Split Latin and meaning on: " ":"))))
@@ -175,20 +175,17 @@
 ;;   (message "%S" (sp/latin-pps--fetch-text (region-beginning) (region-end))))
 
 ;;;###autoload
-(defun sp/split-latin-pps-and-translation (start end)
-  (interactive
-   (list (region-beginning) (region-end)))
-  (when (region-active-p)
-    (let*
-	((latin-pps-and-meaning (sp/latin-pps--fetch-text start end))
-         (latin-pps (nth 0 latin-pps-and-meaning))
-	 (meaning (nth 1 latin-pps-and-meaning))
-	 (answer-string 
-	  (sp/latin-pps--check-eng-and-write latin-pps meaning)))
-      (delete-region start end)
-      (insert answer-string)))
-  (unless (region-active-p)
-    (message "No region selected. Aborting...")))
+(defun sp/split-latin-pps-and-translation ()
+  (interactive)
+  (let*
+      ((latin-pps-and-meaning (sp/latin-pps--fetch-text))
+       (latin-pps (nth 0 latin-pps-and-meaning))
+       (meaning (nth 1 latin-pps-and-meaning))
+       (answer-string 
+	(sp/latin-pps--check-eng-and-write latin-pps meaning)))
+    (move-beginning-of-line nil)
+    (kill-line t)
+    (insert answer-string)))
 
 ;; (setq latin-pps-and-meaning '(("fero" "ferre" "tuli" "latus") "bear"))
 
