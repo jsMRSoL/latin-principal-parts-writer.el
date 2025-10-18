@@ -154,10 +154,9 @@
    (when (= (length latin-pps) 4)
      (format "%s : having been %s\n" (nth 3 latin-pps) (nth 3 eng-pps)))))
 
-(defvar sp/latin-pps--latin-eng-split-token
+(defvar sp/latin-pps--latin-eng-split-token nil
   "The user will be asked for the split char on the first run
-   of sp/latin-pps-and-translation"
-  nil)
+   of sp/latin-pps-and-translation")
 
 (defun sp/latin-pps--fetch-text (start end)
   (let* ((text (string-trim-right
