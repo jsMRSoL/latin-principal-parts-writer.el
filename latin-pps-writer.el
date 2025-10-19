@@ -158,13 +158,11 @@
   "The user will be asked for the split char on the first run
    of sp/latin-pps-and-translation")
 
-(defun sp/latin-pps--fetch-text ()
-  (let* ((text (string-trim-right
-		(thing-at-point 'line t) "\n"))
-	 (split-var (if sp/latin-pps--latin-eng-split-token
+(defun sp/latin-pps--get-parts (line)
+  (let* ((split-var (if sp/latin-pps--latin-eng-split-token
 			sp/latin-pps--latin-eng-split-token
 		      (setq sp/latin-pps--latin-eng-split-token (read-string "Split Latin and meaning on: " ":"))))
-	 (verb-and-meaning (string-split text split-var t " "))
+	 (verb-and-meaning (string-split line split-var t " "))
 	 (verb-string (nth 0 verb-and-meaning))
 	 (pps (string-split verb-string "," t " "))
 	 (meaning (nth 1 verb-and-meaning)))
@@ -174,20 +172,33 @@
 ;;   (interactive)
 ;;   (message "%S" (sp/latin-pps--fetch-text (region-beginning) (region-end))))
 
-;;;###autoload
-(defun sp/split-latin-pps-and-translation ()
-  (interactive)
+(defun sp/latin-pps--process-line (line)
   (let*
-      ((latin-pps-and-meaning (sp/latin-pps--fetch-text))
+      ((latin-pps-and-meaning (sp/latin-pps--get-parts line))
        (latin-pps (nth 0 latin-pps-and-meaning))
        (meaning (nth 1 latin-pps-and-meaning))
        (answer-string 
 	(sp/latin-pps--check-eng-and-write latin-pps meaning)))
-    (move-beginning-of-line nil)
-    (kill-line t)
     (insert answer-string)))
 
 ;; (setq latin-pps-and-meaning '(("fero" "ferre" "tuli" "latus") "bear"))
+
+;;;###autoload
+(defun sp/latin-pps-write-region-or-line ()
+  (interactive)
+  (let*
+      ((lines
+	(if (not (region-active-p))
+	    (list (string-trim-right (thing-at-point 'line t) "\n"))
+	  (string-split (buffer-substring-no-properties
+			 (region-beginning) (region-end)) "\n" t " "))))
+    (if (region-active-p)
+	(delete-region (region-beginning) (region-end))
+      (move-beginning-of-line nil)
+      (kill-line t))
+    (dolist (line lines)
+      (sp/latin-pps--process-line line))))
+
 
 (provide 'latin-pps-writer)
 ;;; latin-pps-writer.el ends here
