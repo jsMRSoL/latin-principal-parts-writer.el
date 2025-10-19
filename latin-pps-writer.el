@@ -124,55 +124,70 @@
     (puthash "wear"    '("wear" "wears" "wore" "worn" "wearing") table)
     (puthash "win"     '("win" "wins" "won" "won" "winning") table)
     (puthash "write"   '("write" "writes" "wrote" "written" "writing") table)
-    table))
+    table)
+  "Create table of irregular English verb parts.
+   The sequence is: base, 3rd pers sing, simple past, past participle, pres participle")
 
 (defun sp/latin-pps--check-eng-and-write (latin-pps eng-basic)
+  "Check if the meaning is in the English irregular verbs table.
+   Write out the meanings of the Latin principal parts accordingly."
   (let ((eng-pps (gethash eng-basic sp/english-irregular-verbs-table :NF)))
     (if (equal eng-pps :NF)
 	(sp/latin-pps--write-regular latin-pps eng-basic)
       (sp/latin-pps--write-irregular latin-pps eng-pps))))
 
 (defun sp/latin-pps--write-regular (latin-pps eng-base)
+  "Write out the meanings of Latin principal parts on the assumption
+   that the English verb is regular."
   (let* ((eng-base-bare (string-trim-right eng-base "e"))
-	 (answer-string (concat
+	 (flashcard-lines (list
      (format "%s : I %s\n" (nth 0 latin-pps) eng-base)
-     (format "%s : to %s\n" (nth 1 latin-pps) eng-base)
+     (when (>= (length latin-pps) 2)
+       (format "%s : to %s\n" (nth 1 latin-pps) eng-base))
      (when (>= (length latin-pps) 3)
        (format "%s : I %sed\n" (nth 2 latin-pps) eng-base-bare))
      (when (= (length latin-pps) 4)
        (format "%s : having been %sed\n" (nth 3 latin-pps) eng-base-bare)))))
-    answer-string))
-
-;; (sp/latin-pps--write-regular '("agito" "agitare" "agitavi" "agitatus") "chase")
+    (mapconcat 'identity flashcard-lines)))
 
 (defun sp/latin-pps--write-irregular (latin-pps eng-pps)
-  (concat
-   (format "%s : I %s\n" (nth 0 latin-pps) (nth 0 eng-pps))
-   (format "%s : to %s\n" (nth 1 latin-pps) (nth 0 eng-pps))
-   (when (>= (length latin-pps) 3)
-     (format "%s : I %s\n" (nth 2 latin-pps) (nth 2 eng-pps)))
-   (when (= (length latin-pps) 4)
-     (format "%s : having been %s\n" (nth 3 latin-pps) (nth 3 eng-pps)))))
+  "Write out the meanings of Latin principal parts on the assumption
+   that the English verb is irregular."
+  (let ((flashcard-lines 
+	 (list
+	  (format "%s : I %s\n" (nth 0 latin-pps) (nth 0 eng-pps))
+	  (when (>= (length latin-pps) 2)
+	    (format "%s : to %s\n" (nth 1 latin-pps) (nth 0 eng-pps)))
+	  (when (>= (length latin-pps) 3)
+	    (format "%s : I %s\n" (nth 2 latin-pps) (nth 2 eng-pps)))
+	  (when (= (length latin-pps) 4)
+	    (format "%s : having been %s\n" (nth 3 latin-pps) (nth 3 eng-pps))))))
+    (mapconcat 'identity flashcard-lines)))
 
 (defvar sp/latin-pps--latin-eng-split-token nil
   "The user will be asked for the split char on the first run
-   of sp/latin-pps-and-translation")
+   of sp/latin-pps-and-translation.")
 
 (defun sp/latin-pps--get-parts (line)
+  "Split a buffer line into a list of lists:
+   E.g. '((\"habeo\" \"habere\" \"habui\" \"habitus\") \"have\")"
   (let* ((split-var (if sp/latin-pps--latin-eng-split-token
 			sp/latin-pps--latin-eng-split-token
 		      (setq sp/latin-pps--latin-eng-split-token (read-string "Split Latin and meaning on: " ":"))))
-	 (verb-and-meaning (string-split line split-var t " "))
+	 (verb-and-meaning
+	  (let ((parts (string-split line split-var t "\\s-+")))
+	    (unless (= (length parts) 2)
+	      (insert (concat line "\n"))
+	      (error "Line missing separator '%s': '%s'" split-var line))
+	    parts))
 	 (verb-string (nth 0 verb-and-meaning))
-	 (pps (string-split verb-string "," t " "))
+	 (pps (string-split verb-string "," t "\\s-+"))
 	 (meaning (nth 1 verb-and-meaning)))
     (list pps meaning)))
 
-;; (defun sp/test-latin-pps--fetch-text ()
-;;   (interactive)
-;;   (message "%S" (sp/latin-pps--fetch-text (region-beginning) (region-end))))
-
 (defun sp/latin-pps--process-line (line)
+  "Convert a string in the format [comma-separated principal parts][separator][basic meaning]
+   into a string or strings in the format [specific part] : [specific meaning]."
   (let*
       ((latin-pps-and-meaning (sp/latin-pps--get-parts line))
        (latin-pps (nth 0 latin-pps-and-meaning))
@@ -181,10 +196,29 @@
 	(sp/latin-pps--check-eng-and-write latin-pps meaning)))
     (insert answer-string)))
 
-;; (setq latin-pps-and-meaning '(("fero" "ferre" "tuli" "latus") "bear"))
 
 ;;;###autoload
 (defun sp/latin-pps-write-region-or-line ()
+  "For lines which give comma-separated Latin verb principal parts followed by
+   another separator and English meaning, e.g.
+
+   habeo, habere, habui, habitus: have
+
+   replace the current line, or lines in the current active region, with lines
+   of the format [specific principal part] : [specific English meaning], e.g.
+
+   habeo : I have
+   habere : to have
+   habui : I had
+   habitus : having been had
+
+   Lines may have 1-4 principal parts.
+   Any standard separator between Latin and English which is not a comma or a space
+   should work, but it is assumed that the same separator is used in each line. The
+   user is asked to specify the separator on first run.
+
+   LIMITATIONS:
+   Only one English meaning may be specified."
   (interactive)
   (let*
       ((lines
@@ -194,10 +228,8 @@
 			 (region-beginning) (region-end)) "\n" t " "))))
     (if (region-active-p)
 	(delete-region (region-beginning) (region-end))
-      (move-beginning-of-line nil)
-      (kill-line t))
-    (dolist (line lines)
-      (sp/latin-pps--process-line line))))
+      (delete-region (line-beginning-position) (line-beginning-position 2)))
+    (mapc #'sp/latin-pps--process-line lines)))
 
 
 (provide 'latin-pps-writer)
